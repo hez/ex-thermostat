@@ -1,10 +1,11 @@
 defmodule ExThermostat.MixProject do
   use Mix.Project
 
+  @version "0.1.0"
   def project do
     [
       app: :ex_thermostat,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps()
@@ -21,13 +22,17 @@ defmodule ExThermostat.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:phoenix_live_view, "~> 1.0"},
-      {:heroicons, "~> 0.5"},
-      {:dht, "~> 0.1"},
       {:circuits_gpio, "~> 2.0"},
+      {:dht, "~> 0.1"},
+      {:heroicons,
+       github: "tailwindlabs/heroicons",
+       tag: "v2.1.1",
+       sparse: "optimized",
+       app: false,
+       compile: false,
+       depth: 1},
+      {:phoenix_live_view, "~> 1.0"},
       {:pid_controller, "~> 0.1.3"}
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
     ]
   end
 end
