@@ -69,7 +69,7 @@ defmodule ExThermostatWeb.LiveComponent do
   def current_temperature(assigns) do
     ~H"""
     <div class="text-4xl flex">
-      <div><Heroicons.home class="h-10 w-10 mr-4 stroke-amber-600" /></div>
+      <div><span name="hero-home-solid" class="h-10 w-10 mr-4 stroke-amber-600" /></div>
       <.temperature_display sensor={@status} />
     </div>
     """

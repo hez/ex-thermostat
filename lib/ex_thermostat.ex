@@ -18,25 +18,24 @@ defmodule ExThermostat do
     minimum_target: 10,
     maximum_target: 30,
     poll_interval: @poll_interval,
-    winter_end: ~D[2000-04-01],
-    winter_mode_enabled: true,
-    winter_start: ~D[2000-10-01],
-    winter_target_temperature: 16.0
+    status: %Status{}
   ]
 
   def start_link(opts \\ []) do
     options = Keyword.merge(@default_options, opts)
-    GenServer.start_link(@name, %{status: nil, options: options}, name: @name)
+    status = Keyword.get(options, :status)
+
+    GenServer.start_link(@name, %{status: status, options: options}, name: @name)
   end
 
   @impl true
   def init(%{options: options} = state) do
     queue_poll(options)
     subscribe(:temperature)
-    {:ok, %{state | status: initial_status(options)}}
+    {:ok, state}
   end
 
-  @spec status() :: Status.t()
+  @spec status() :: map()
   def status, do: GenServer.call(@name, :status)
 
   @spec options(atom()) :: any()
@@ -65,22 +64,6 @@ defmodule ExThermostat do
     end
   end
 
-  @spec initial_status(Keyword.t()) :: Status.t()
-  def initial_status(options) do
-    if Keyword.get(options, :winter_mode_enabled, true) and
-         winter_mode?(options, Date.utc_today()) do
-      %Status{heating: true, target: Keyword.get(options, :winter_target_temperature)}
-    else
-      %Status{}
-    end
-  end
-
-  @spec winter_mode?(Keyword.t(), Date.t()) :: boolean()
-  def winter_mode?(options, date) do
-    Date.compare(date, %{Keyword.get(options, :winter_start) | year: date.year}) === :gt or
-      Date.compare(date, %{Keyword.get(options, :winter_end) | year: date.year}) === :lt
-  end
-
   @impl true
   def handle_call(:status, _from, state), do: {:reply, state.status, state}
 
@@ -105,7 +88,7 @@ defmodule ExThermostat do
   end
 
   @impl true
-  def handle_info(:poll, %{status: %Status{heating: true} = status} = state) do
+  def handle_info(:poll, %{status: %{heating: true} = status} = state) do
     output = ExThermostat.PID.output(status.temperature)
 
     state =
@@ -139,14 +122,14 @@ defmodule ExThermostat do
   end
 
   @spec update_status(map(), atom(), any()) :: map()
-  defp update_status(%{status: %Status{} = status} = state, key, value) when is_atom(key),
-    do: %{state | status: ExThermostat.Status.update(status, key, value)}
+  defp update_status(%{status: status} = state, key, value) when is_atom(key),
+    do: %{state | status: Map.put(status, key, value)}
 
   defp queue_poll(options) when is_list(options),
     do: Process.send_after(self(), :poll, Keyword.get(options, :poll_interval, @poll_interval))
 
   # Heating ON
-  defp update_state_and_broadcast(%{status: %Status{heating: true, pid: pid_val}} = state)
+  defp update_state_and_broadcast(%{status: %{heating: true, pid: pid_val}} = state)
        when pid_val > 0 do
     broadcast(:heater, {:heater, true})
 
@@ -171,7 +154,7 @@ defmodule ExThermostat do
     end
   end
 
-  defp can_shutdown?(%{options: options, status: %Status{} = status}) do
+  defp can_shutdown?(%{options: options, status: status}) do
     with true <- status.heating,
          true <- status.heater_on,
          heater_started_at when not is_nil(heater_started_at) <- status.heater_started_at,
