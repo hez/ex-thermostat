@@ -9,7 +9,7 @@ defmodule ExThermostat.PubSub do
   }
 
   @type topic() :: :fan | :heater | :temperature | :thermostat | :thermostat_status
-  @type event() :: {atom(), any()}
+  @type event() :: any()
   @type broadcast_return() :: :ok | {:error, term()}
 
   @spec subscribe(topic()) :: :ok
