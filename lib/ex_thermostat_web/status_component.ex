@@ -17,5 +17,6 @@ defmodule ExThermostatWeb.StatusComponent do
   end
 
   ### Thermostat Pubsub callbacks
-  def handle_info({:thermostat, status}, socket), do: {:noreply, assign(socket, status: status)}
+  def handle_info(%ExThermostat.Status{} = status, socket),
+    do: {:noreply, assign(socket, status: status)}
 end

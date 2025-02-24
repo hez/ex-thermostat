@@ -15,6 +15,7 @@ defmodule ExThermostat.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      mod: {ExThermostat.Application, []},
       extra_applications: [:logger]
     ]
   end

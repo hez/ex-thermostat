@@ -2,6 +2,11 @@ defmodule ExThermostat do
   @moduledoc """
   `Thermostat`
   """
+  @callback status() :: ExThermostat.Status.t()
+  @callback set_mode(atom()) :: :ok | :error
+  @callback toggle_mode(atom()) :: :ok | :error
+  @callback set_target(float()) :: :ok | :error
+  @callback adjust_target_by(float()) :: :ok | :error
 
   use GenServer
 
@@ -14,7 +19,6 @@ defmodule ExThermostat do
   @poll_interval 30 * 1000
   @default_options [
     # Minimum heater runtime in minutes
-    minimum_runtime: nil,
     minimum_target: 10,
     maximum_target: 30,
     poll_interval: @poll_interval,
@@ -37,15 +41,19 @@ defmodule ExThermostat do
 
   @spec status() :: map()
   def status, do: GenServer.call(@name, :status)
+  @spec update_status(atom(), any()) :: any()
+  def update_status(key, value), do: update_status(%{key => value})
+  @spec update_status(map()) :: any()
+  def update_status(map), do: GenServer.cast(@name, {:update_status, map})
 
   @spec options(atom()) :: any()
   def options(key) when is_atom(key),
     do: @name |> GenServer.call(:options) |> Keyword.get(key)
 
-  @spec start_heat() :: :ok
-  def start_heat, do: GenServer.cast(@name, {:set_heating, true})
-  @spec stop_heat() :: :ok
-  def stop_heat, do: GenServer.cast(@name, {:set_heating, false})
+  @spec start_heat(map()) :: :ok
+  def start_heat(new_status \\ %{}), do: new_status |> Map.put(:heating, true) |> update_status()
+  @spec stop_heat(map()) :: :ok
+  def stop_heat(new_status \\ %{}), do: new_status |> Map.put(:heating, false) |> update_status()
 
   @spec adjust_target_by(float()) :: :ok | {:error, atom()}
   def adjust_target_by(value) when is_float(value), do: set_target(status().target + value)
@@ -71,17 +79,22 @@ defmodule ExThermostat do
   def handle_call(:options, _from, state), do: {:reply, state.options, state}
 
   @impl true
-  def handle_cast({:set_heating, value}, state) when is_boolean(value) do
-    state = update_status(state, :heating, value)
-    broadcast(:thermostat, {:heating, value})
-    broadcast(:thermostat_status, {:thermostat, state.status})
+  def handle_cast({:update_status, values}, state) do
+    state =
+      Enum.reduce(values, state, fn {key, value}, acc ->
+        acc = update_status(acc, key, value)
+        broadcast(:thermostat, {key, value})
+        broadcast(:thermostat_status, {:thermostat, acc.status})
+        acc
+      end)
+
     {:noreply, state}
   end
 
   @impl true
   def handle_cast({:set_target, new_target}, state) do
     state = update_status(state, :target, new_target)
-    ExThermostat.PID.update_set_point(new_target)
+    pid_impl().update_set_point(new_target)
     broadcast(:thermostat, {:target, new_target})
     broadcast(:thermostat_status, {:thermostat, state.status})
     {:noreply, state}
@@ -89,7 +102,7 @@ defmodule ExThermostat do
 
   @impl true
   def handle_info(:poll, %{status: %{heating: true} = status} = state) do
-    output = ExThermostat.PID.output(status.temperature)
+    output = pid_impl().output(status.temperature)
 
     state =
       state
@@ -133,37 +146,38 @@ defmodule ExThermostat do
        when pid_val > 0 do
     broadcast(:heater, {:heater, true})
 
-    state.status.heater_on
-    |> case do
+    case state.status.heater_on do
       # Transition to heating on
       false -> state |> update_status(:heater_started_at, DateTime.utc_now())
       _ -> state
     end
-    |> update_status(:heater_on, true)
   end
 
+  # Heating OFF
   defp update_state_and_broadcast(%{} = state) do
     case can_shutdown?(state) do
       true ->
         broadcast(:heater, {:heater, false})
-        state |> update_status(:heater_on, false) |> update_status(:heater_started_at, nil)
+        update_status(state, :heater_started_at, nil)
 
       false ->
-        Logger.warning("Can't shutdown heater yet")
+        Logger.warning("Can't shutdown heater yet, can_shutdown?/1 returned false")
         state
     end
   end
 
-  defp can_shutdown?(%{options: options, status: status}) do
+  defp can_shutdown?(%{status: status}) do
     with true <- status.heating,
-         true <- status.heater_on,
-         heater_started_at when not is_nil(heater_started_at) <- status.heater_started_at,
-         min_rt when not is_nil(min_rt) <- Keyword.get(options, :minimum_runtime) do
+         heater_started_at when not is_nil(heater_started_at) <-
+           Map.get(status, :heater_started_at, nil),
+         min_rt when is_struct(min_rt, Duration) <- Map.get(status, :minimum_runtime, nil) do
       heater_started_at
-      |> DateTime.shift(minute: min_rt)
+      |> DateTime.shift(min_rt)
       |> DateTime.compare(DateTime.utc_now()) == :lt
     else
       _ -> true
     end
   end
+
+  defp pid_impl, do: Application.get_env(:ex_thermostat, :pid_implementation, ExThermostat.PID)
 end
