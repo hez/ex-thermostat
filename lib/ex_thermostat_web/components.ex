@@ -10,23 +10,17 @@ defmodule ExThermostatWeb.Components do
 
   @default_icon_size "h-12 w-12"
 
-  attr(:phx_click, :string, default: "", required: false)
-  attr(:phx_target, :string, default: nil, required: false)
   attr(:on, :boolean, default: false, required: false)
-  slot(:inner_block, required: true)
+  attr(:enabled, :boolean, default: true)
 
   def toggle(assigns) do
     ~H"""
-    <div class="px-4 py-2" phx-click={@phx_click} phx-target={@phx_target}>
+    <div class="px-4 py-2">
       <%= if @on do %>
-        <.on_toggle_icon class="fill-orange-500" />
+        <.on_toggle_icon class={if @enabled, do: "fill-orange-500", else: "fill-orange-200"} />
       <% else %>
-        <.off_toggle_icon class="fill-blue-500" />
+        <.off_toggle_icon class={if @enabled, do: "fill-blue-500", else: "fill-blue-200"} />
       <% end %>
-    </div>
-
-    <div class="px-4 py-2 text-4xl" phx-click={@phx_click} phx-target={@phx_target}>
-      {render_slot(@inner_block)}
     </div>
     """
   end
@@ -139,6 +133,30 @@ defmodule ExThermostatWeb.Components do
         c8.105,5.279,16.487,10.738,18.873,18.446c4.178,13.497-8.389,22.301-8.887,22.643c-2.75,1.833-3.976,5.25-3.018,8.414
         c0.958,3.163,3.873,5.327,7.178,5.327h37.504c1.603,0,3.164-0.514,4.454-1.466c0.909-0.67,22.255-16.818,22.255-50.855
         C192,96.484,166.643,70.743,165.563,69.663z" />
+    </svg>
+    """
+  end
+
+  attr(:class, :string, default: nil)
+  attr(:icon_size, :string, default: @default_icon_size)
+
+  def air_conditioner_icon(assigns) do
+    ~H"""
+    <svg
+      class={[@class, @icon_size]}
+      width="1em"
+      height="1em"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M20,4H4A2,2,0,0,0,2,6V18a2,2,0,0,0,2,2H20a2,2,0,0,0,2-2V6A2,2,0,0,0,20,4ZM10,18a6,6,0,1,1,6-6A6,
+      6,0,0,1,10,18ZM19,8a1,1,0,1,1,1-1A1,1,0,0,1,19,8Zm-4,4.25c0,2.25-1.79,2.3-2.38,1.11a1.61,1.61,
+      0,0,0-.53-.54,1.65,1.65,0,0,0-.71-.26,1.82,1.82,0,0,1-.46.61c1,1.85.6,3.83-1.19,3.83-2.23,
+      0-2.28-1.79-1.1-2.38a1.68,1.68,0,0,0,.54-.52,1.76,1.76,0,0,0,.27-.7,1.61,1.61,0,0,1-.63-.46C7,
+      13.93,5,13.53,5,11.75,5,9.5,6.77,9.44,7.36,10.63a1.52,1.52,0,0,0,.53.54,1.81,1.81,0,0,0,.71.27,
+      1.51,1.51,0,0,1,.46-.62C8.06,9,8.46,7,10.24,7h0c2.25,0,2.3,1.78,1.11,2.38a1.58,1.58,0,0,0-.54.52,
+      1.65,1.65,0,0,0-.26.71,1.7,1.7,0,0,1,.61.45C13,10.06,15,10.46,15,12.25Z" />
+      <rect width="24" height="24" fill="none" />
     </svg>
     """
   end

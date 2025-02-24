@@ -6,12 +6,14 @@ defmodule ExThermostatWeb.LiveComponent do
   @adjustment_amount 0.5
 
   @impl true
-  def handle_event("furnace_toggle", _, socket) do
-    if socket.assigns.status.heating do
-      socket.assigns.thermostat_implementation.stop_heat()
-    else
-      socket.assigns.thermostat_implementation.start_heat()
-    end
+  def handle_event("toggle_heat", _params, socket) do
+    socket.assigns.thermostat_implementation.toggle_mode(:heat)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle_cool", _params, socket) do
+    socket.assigns.thermostat_implementation.toggle_mode(:cool)
 
     {:noreply, socket}
   end
@@ -30,36 +32,70 @@ defmodule ExThermostatWeb.LiveComponent do
 
   attr(:status, :map, required: false)
   attr(:show_heater, :boolean, default: true)
+  attr(:show_cooler, :boolean, default: true)
   attr(:show_fan, :boolean, default: false)
 
   def render(assigns) do
+    assigns =
+      assigns
+      |> assign(:thermostat_temperature_colour, thermostat_temperature_colour(assigns[:status]))
+      |> assign(:show_temperature_controls, show_temperature_controls(assigns[:status]))
+
     ~H"""
     <div class="component flex flex-row mx-2">
-      <.toggle on={@status.heating} phx_click="furnace_toggle" phx_target={@myself}>
-        Furnace
-      </.toggle>
+      <div
+        :if={@show_heater}
+        class="component flex flex-row border-2 border-solid border-blue-600 rounded-2xl mx-2"
+        phx-click="toggle_heat"
+        phx-target={@myself}
+      >
+        <div class="ml-2 mt-2">
+          <.fire_icon class={if @status.mode == :heat, do: "fill-red-600", else: "fill-gray-500"} />
+        </div>
 
-      <div class="px-4 py-2" :if={@show_heater}>
-        <.fire_icon class={if @status.heater_on, do: "fill-red-600", else: "fill-gray-500"} />
+        <.toggle on={@status.mode == :heat} />
+
+        <div class="px-4 py-2 text-4xl">
+          Furnace
+        </div>
       </div>
 
-      <div class="px-4 py-2" :if={@show_fan}>
-        <.fan_icon class={if @status.fan_on, do: "fill-blue-600", else: "fill-gray-500"} />
+      <div
+        :if={@show_cooler}
+        class="component flex flex-row border-2 border-solid border-blue-600 rounded-2xl px-2"
+        phx-click="toggle_cool"
+        phx-target={@myself}
+      >
+        <div class="ml-2 mt-2">
+          <.air_conditioner_icon class={
+            if @status.mode == :cool, do: "fill-blue-600", else: "fill-gray-500"
+          } />
+        </div>
+
+        <.toggle on={@status.mode == :cool} />
+
+        <div class="px-4 py-2 text-4xl">
+          A/C
+        </div>
       </div>
 
-      <%= if @status.heating do %>
+      <div :if={@show_fan} class="px-4 py-2">
+        <.fan_icon class={if @status.mode == :fan, do: "fill-blue-600", else: "fill-gray-500"} />
+      </div>
+
+      <div :if={@show_temperature_controls} class="component flex flex-row">
         <div class="px-4 py-2" phx-click="target_down" phx-target={@myself}>
           <.caret_down_filled_icon class="fill-blue-600" />
         </div>
 
-        <div class={"px-4 py-2 text-4xl#{if @status.target > @status.temperature, do: " text-red-600"}"}>
+        <div class={["px-4 py-2 text-4xl", @thermostat_temperature_colour]}>
           {@status.target}&#176;C
         </div>
 
         <div class="px-4 py-2" phx-click="target_up" phx-target={@myself}>
           <.caret_up_filled_icon class="fill-blue-600" />
         </div>
-      <% end %>
+      </div>
     </div>
     """
   end
@@ -89,4 +125,17 @@ defmodule ExThermostatWeb.LiveComponent do
     </div>
     """
   end
+
+  defp show_temperature_controls(%{mode: mode}) when mode == :heat or mode == :cool, do: true
+  defp show_temperature_controls(_), do: false
+
+  defp thermostat_temperature_colour(%{mode: mode, target: target, temperature: temperature})
+       when mode == :heat and target > temperature,
+       do: "text-red-600"
+
+  defp thermostat_temperature_colour(%{mode: mode, target: target, temperature: temperature})
+       when mode == :cool and target < temperature,
+       do: "text-blue-600"
+
+  defp thermostat_temperature_colour(_), do: nil
 end
