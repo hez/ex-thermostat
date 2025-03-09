@@ -23,6 +23,10 @@ defmodule ExThermostat.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      # Dev
+      {:credo, "~> 1.7.0", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.2", only: [:dev, :test], runtime: false},
+      # everything else
       {:circuits_gpio, "~> 2.0"},
       {:dht, "~> 0.1"},
       {:heroicons,
