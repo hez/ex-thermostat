@@ -42,7 +42,7 @@ defmodule ExThermostatWeb.LiveComponent do
       |> assign(:show_temperature_controls, show_temperature_controls(assigns[:status]))
 
     ~H"""
-    <div class="component flex flex-row mx-2">
+    <div class={[assigns[:class], "component flex flex-row mx-2"]}>
       <div
         :if={@show_heater}
         class="component flex flex-row border-2 border-solid border-blue-600 rounded-2xl mx-2"
